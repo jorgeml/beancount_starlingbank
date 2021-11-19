@@ -14,13 +14,16 @@ basedir = path.abspath(path.dirname(__file__))
 load_dotenv(path.join(basedir, ".env"))
 
 # General Config
-TOKEN = environ.get("PERSONAL_ACCESS_TOKEN")
+TOKEN_LIST = json.loads(environ["PERSONAL_ACCESS_TOKENS"])
 data_folder = Path(environ.get("DATA_FOLDER"))
+
 
 def get_accounts(token):
     headers = {"Authorization": f"Bearer {token}"}
     params = {}
-    r = requests.get("https://api.starlingbank.com/api/v2/accounts", headers=headers, params=params)
+    r = requests.get(
+        "https://api.starlingbank.com/api/v2/accounts", headers=headers, params=params
+    )
     r.raise_for_status()
     return r.json()
 
@@ -31,13 +34,17 @@ def get_accounts_balance(accounts, token):
         params = {}
         accountUid = account.get("accountUid")
         r = requests.get(
-            f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/balance", headers=headers, params=params
+            f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/balance",
+            headers=headers,
+            params=params,
         )
         r.raise_for_status()
-        balance = r.json().get("amount").get("minorUnits")/100
+        balance = r.json().get("amount").get("minorUnits") / 100
         currency = r.json().get("amount").get("currency")
         r = requests.get(
-            f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/identifiers", headers=headers, params=params
+            f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/identifiers",
+            headers=headers,
+            params=params,
         )
         r.raise_for_status()
         account_name = account.get("name")
@@ -46,14 +53,17 @@ def get_accounts_balance(accounts, token):
         print(f"{sort_code} {account_number} {account_name}: {balance} {currency}")
     return
 
+
 def get_accounts_transactions(accounts, token, fromdate):
     for account in accounts.get("accounts"):
         headers = {"Authorization": f"Bearer {token}"}
         accountUid = account.get("accountUid")
         categoryUid = account.get("defaultCategory")
-        params = {"changesSince": fromdate.strftime('%Y-%m-%dT%H:%M:%SZ')}
+        params = {"changesSince": fromdate.strftime("%Y-%m-%dT%H:%M:%SZ")}
         r = requests.get(
-            f"https://api.starlingbank.com/api/v2/feed/account/{accountUid}/category/{categoryUid}", headers=headers, params=params
+            f"https://api.starlingbank.com/api/v2/feed/account/{accountUid}/category/{categoryUid}",
+            headers=headers,
+            params=params,
         )
         r.raise_for_status()
         account_name = account.get("name")
@@ -76,12 +86,13 @@ def main(argv):
             sys.exit()
         elif opt in ("-d", "--date"):
             fromdate = datetime.fromisoformat(arg)
-    print("## Getting accounts")
-    accounts = get_accounts(TOKEN)
-    print("## Getting balances")
-    get_accounts_balance(accounts, TOKEN)
-    print("## Getting transactions")
-    get_accounts_transactions(accounts, TOKEN, fromdate)
+    for token in TOKEN_LIST:
+        print("## Getting account")
+        accounts = get_accounts(token)
+        print("## Getting balance")
+        get_accounts_balance(accounts, token)
+        print("## Getting transactions")
+        get_accounts_transactions(accounts, token, fromdate)
 
 
 if __name__ == "__main__":
