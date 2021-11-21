@@ -72,6 +72,23 @@ def get_accounts_transactions(accounts, token, fromdate):
             json.dump(r.json(), json_file, indent=2)
     return
 
+def get_account_payees(accounts, token):
+    for account in accounts.get("accounts"):
+        headers = {"Authorization": f"Bearer {token}"}
+        categoryUid = account.get("defaultCategory")
+        params = {}
+        r = requests.get(
+            "https://api.starlingbank.com/api/v2/payees",
+            headers=headers,
+            params=params,
+        )
+        r.raise_for_status()
+        account_name = account.get("name")
+        filename = data_folder / f"starlingbank-payees-{categoryUid}.json"
+        with open(filename, "w") as json_file:
+            json.dump(r.json(), json_file, indent=2)
+    return
+
 
 def main(argv):
     fromdate = datetime.now() - timedelta(90)
@@ -93,6 +110,8 @@ def main(argv):
         get_accounts_balance(accounts, token)
         print("## Getting transactions")
         get_accounts_transactions(accounts, token, fromdate)
+        print("## Getting payees")
+        get_account_payees(accounts, token)
 
 
 if __name__ == "__main__":
