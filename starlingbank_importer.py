@@ -23,7 +23,11 @@ def get_transactions(file):
         return False
 
     with open(file.name) as data_file:
-        return json.load(data_file)["feedItems"]
+        data = json.load(data_file)
+        if "feedItems" in data:
+            return data["feedItems"]
+        else:
+            return False
 
 
 def get_unit_price(transaction):
@@ -157,10 +161,8 @@ class Importer(importer.ImporterProtocol):
         return self.account
 
     def file_name(self, file):
-        return f'starlingbank.{self.account_id}.json'
+        return f"starlingbank.{self.category_uid}.json"
 
     def file_date(self, file):
         transactions = get_transactions(file)
-        last = len(transactions) - 1
-        return parse_date_liberally(transactions[last]["transactionTime"])
-
+        return parse_date_liberally(transactions[0]["transactionTime"])
