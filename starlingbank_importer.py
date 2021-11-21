@@ -157,11 +157,10 @@ class Importer(importer.ImporterProtocol):
         return self.account
 
     def file_name(self, file):
-        # return 'json'
-        return "starlingbank.{}".format(path.basename(file.name))
+        return f'starlingbank.{self.account_id}.json'
 
     def file_date(self, file):
         transactions = get_transactions(file)
         last = len(transactions) - 1
-        return parse_date_liberally(transactions[last]["created"])
+        return parse_date_liberally(transactions[last]["transactionTime"])
 
