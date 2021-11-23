@@ -130,7 +130,7 @@ class Importer(importer.ImporterProtocol):
             reference = transaction["reference"]
             source = transaction["source"]
 
-            narration = " / ".join(filter(None, [name, reference, source]))
+            narration = " / ".join(filter(None, [payee, name, reference, source]))
 
             postings = []
             unit = data.Amount(
