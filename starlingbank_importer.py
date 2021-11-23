@@ -5,6 +5,8 @@ Parses a transaction feed downloaded from the Starling Bank API. Please refer to
 Thanks to Adam Gibbins <adam@adamgibbins.com> for his Monzo importer (https://github.com/adamgibbins/beancount-bits/blob/master/ingest/importers/monzo_debit.py) which I used as a reference.
 
 """
+import datetime
+import itertools
 import json
 import re
 from os import path
@@ -62,6 +64,21 @@ def get_payee_account(file, categoryUid, payeeUid, payeeAccountUid):
         return None
 
 
+def get_balance(file, categoryUid):
+    try:
+        date = path.basename(file.name).split("starlingbank")[0]
+        with open(
+            path.join(
+                path.dirname(file.name),
+                f"{date}starlingbank-balance-{categoryUid}.json",
+            )
+        ) as balance_file:
+            return json.load(balance_file)["clearedBalance"]
+    except OSError:
+        print("Balance file does not exist.")
+        return None
+
+
 class Importer(importer.ImporterProtocol):
     def __init__(self, category_uid, account):
         self.category_uid = category_uid
@@ -81,6 +98,7 @@ class Importer(importer.ImporterProtocol):
 
     def extract(self, file, existing_entries=None):
         entries = []
+        counter = itertools.count()
         transactions = get_transactions(file)
 
         for transaction in transactions:
@@ -116,7 +134,7 @@ class Importer(importer.ImporterProtocol):
                         "description"
                     ]
 
-            meta = data.new_metadata(file.name, 0, metadata)
+            meta = data.new_metadata(file.name, next(counter), metadata)
 
             date = parse_date_liberally(transaction["transactionTime"])
             price = get_unit_price(transaction)
@@ -155,7 +173,24 @@ class Importer(importer.ImporterProtocol):
                 )
             )
 
-        return entries
+        balance_date = parse_date_liberally(transactions[0]["transactionTime"])
+        balance_date += datetime.timedelta(days=1)
+
+        balance = get_balance(file, transaction["categoryUid"])
+        balance_amount = data.Amount(
+            D(balance.get("minorUnits")) / 100,
+            balance.get("currency"),
+        )
+
+        meta = data.new_metadata(file.name, next(counter))
+
+        balance_entry = data.Balance(
+            meta, balance_date, self.account, balance_amount, None, None
+        )
+
+        entries.append(balance_entry)
+
+        return data.sorted(entries)
 
     def file_account(self, file):
         return self.account

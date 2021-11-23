@@ -40,10 +40,10 @@ def get_accounts_balance(accounts, token):
             params=params,
         )
         balance_request.raise_for_status()
-        filename = data_folder / f"starlingbank-balance-{categoryUid}.json"
+        balance = balance_request.json().get("amount").get("minorUnits") / 100
+        filename = data_folder / f"{date.today()}-starlingbank-balance-{categoryUid}.json"
         with open(filename, "w") as json_file:
             json.dump(balance_request.json(), json_file, indent=2)
-        balance = balance_request.json().get("amount").get("minorUnits") / 100
         currency = balance_request.json().get("amount").get("currency")
         identifier_request = requests.get(
             f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/identifiers",
