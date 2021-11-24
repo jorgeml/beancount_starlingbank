@@ -20,14 +20,26 @@ __author__ = "Jorge Martínez López <jorgeml@jorgeml.me>"
 __license__ = "MIT"
 
 
+def get_account_id(file):
+    if not re.match(".*\.json", path.basename(file.name)):
+        return False
+
+    with open(file.name) as data_file:
+        account_data = json.load(data_file)[0]
+        if "accountIdentifier" in account_data:
+            return account_data["accountIdentifier"]
+        else:
+            return False
+
+
 def get_transactions(file):
     if not re.match(".*\.json", path.basename(file.name)):
         return False
 
     with open(file.name) as data_file:
-        data = json.load(data_file)
-        if "feedItems" in data:
-            return data["feedItems"]
+        transaction_data = json.load(data_file)[1]
+        if "feedItems" in transaction_data:
+            return transaction_data["feedItems"]
         else:
             return False
 
@@ -47,36 +59,19 @@ def get_unit_price(transaction):
 
 
 def get_payee_account(file, categoryUid, payeeUid, payeeAccountUid):
-    try:
-        with open(
-            path.join(
-                path.dirname(file.name), f"starlingbank-payees-{categoryUid}.json"
-            )
-        ) as payee_file:
-            payees = json.load(payee_file)["payees"]
-            for payee in payees:
-                if payeeUid == payee["payeeUid"]:
-                    for account in payee["accounts"]:
-                        if payeeAccountUid == account["payeeAccountUid"]:
-                            return account
-    except OSError:
-        print("Payee file does not exist.")
+    with open(file.name) as data_file:
+        payee_data = json.load(data_file)[3]["payees"]
+        for payee in payee_data:
+            if payeeUid == payee["payeeUid"]:
+                for account in payee["accounts"]:
+                    if payeeAccountUid == account["payeeAccountUid"]:
+                        return account
         return None
 
 
 def get_balance(file, categoryUid):
-    try:
-        date = path.basename(file.name).split("starlingbank")[0]
-        with open(
-            path.join(
-                path.dirname(file.name),
-                f"{date}starlingbank-balance-{categoryUid}.json",
-            )
-        ) as balance_file:
-            return json.load(balance_file)["clearedBalance"]
-    except OSError:
-        print("Balance file does not exist.")
-        return None
+    with open(file.name) as data_file:
+        return json.load(data_file)[2]["clearedBalance"]
 
 
 class Importer(importer.ImporterProtocol):

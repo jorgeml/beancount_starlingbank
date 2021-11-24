@@ -21,78 +21,65 @@ data_folder = Path(environ.get("DATA_FOLDER"))
 def get_accounts(token):
     headers = {"Authorization": f"Bearer {token}"}
     params = {}
-    r = requests.get(
+    accounts_request = requests.get(
         "https://api.starlingbank.com/api/v2/accounts", headers=headers, params=params
     )
-    r.raise_for_status()
-    return r.json()
+    accounts_request.raise_for_status()
+    return accounts_request.json()
 
 
-def get_accounts_balance(accounts, token):
-    for account in accounts.get("accounts"):
-        headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
-        params = {}
-        accountUid = account.get("accountUid")
-        categoryUid = account.get("defaultCategory")
-        balance_request = requests.get(
-            f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/balance",
-            headers=headers,
-            params=params,
-        )
-        balance_request.raise_for_status()
-        balance = balance_request.json().get("amount").get("minorUnits") / 100
-        filename = data_folder / f"{date.today()}-starlingbank-balance-{categoryUid}.json"
-        with open(filename, "w") as json_file:
-            json.dump(balance_request.json(), json_file, indent=2)
-        currency = balance_request.json().get("amount").get("currency")
-        identifier_request = requests.get(
-            f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/identifiers",
-            headers=headers,
-            params=params,
-        )
-        identifier_request.raise_for_status()
-        account_name = account.get("name")
-        sort_code = identifier_request.json().get("bankIdentifier")
-        account_number = identifier_request.json().get("accountIdentifier")
-        print(f"{sort_code} {account_number} {account_name}: {balance} {currency}")
-    return
+def get_account_identifiers(account, token):
+    headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
+    params = {}
+    accountUid = account.get("accountUid")
+    categoryUid = account.get("defaultCategory")
+    identifiers_request = requests.get(
+        f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/identifiers",
+        headers=headers,
+        params=params,
+    )
+    identifiers_request.raise_for_status()
+    return identifiers_request.json()
 
 
-def get_accounts_transactions(accounts, token, fromdate):
-    for account in accounts.get("accounts"):
-        headers = {"Authorization": f"Bearer {token}"}
-        accountUid = account.get("accountUid")
-        categoryUid = account.get("defaultCategory")
-        params = {"changesSince": fromdate.strftime("%Y-%m-%dT%H:%M:%SZ")}
-        r = requests.get(
-            f"https://api.starlingbank.com/api/v2/feed/account/{accountUid}/category/{categoryUid}",
-            headers=headers,
-            params=params,
-        )
-        r.raise_for_status()
-        account_name = account.get("name")
-        filename = data_folder / f"{date.today()}-starlingbank-{account_name}.json"
-        with open(filename, "w") as json_file:
-            json.dump(r.json(), json_file, indent=2)
-    return
+def get_account_balance(account, token):
+    headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
+    params = {}
+    accountUid = account.get("accountUid")
+    categoryUid = account.get("defaultCategory")
+    balance_request = requests.get(
+        f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/balance",
+        headers=headers,
+        params=params,
+    )
+    balance_request.raise_for_status()
+    return balance_request.json()
 
 
-def get_account_payees(accounts, token):
-    for account in accounts.get("accounts"):
-        headers = {"Authorization": f"Bearer {token}"}
-        categoryUid = account.get("defaultCategory")
-        params = {}
-        r = requests.get(
-            "https://api.starlingbank.com/api/v2/payees",
-            headers=headers,
-            params=params,
-        )
-        r.raise_for_status()
-        account_name = account.get("name")
-        filename = data_folder / f"starlingbank-payees-{categoryUid}.json"
-        with open(filename, "w") as json_file:
-            json.dump(r.json(), json_file, indent=2)
-    return
+def get_account_transactions(account, token, fromdate):
+    headers = {"Authorization": f"Bearer {token}"}
+    accountUid = account.get("accountUid")
+    categoryUid = account.get("defaultCategory")
+    params = {"changesSince": fromdate.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    transactions_request = requests.get(
+        f"https://api.starlingbank.com/api/v2/feed/account/{accountUid}/category/{categoryUid}",
+        headers=headers,
+        params=params,
+    )
+    transactions_request.raise_for_status()
+    return transactions_request.json()
+
+
+def get_account_payees(account, token):
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {}
+    payees_request = requests.get(
+        "https://api.starlingbank.com/api/v2/payees",
+        headers=headers,
+        params=params,
+    )
+    payees_request.raise_for_status()
+    return payees_request.json()
 
 
 def main(argv):
@@ -109,14 +96,17 @@ def main(argv):
         elif opt in ("-d", "--date"):
             fromdate = datetime.fromisoformat(arg)
     for token in TOKEN_LIST:
-        print("## Getting account")
         accounts = get_accounts(token)
-        print("## Getting balance")
-        get_accounts_balance(accounts, token)
-        print("## Getting transactions")
-        get_accounts_transactions(accounts, token, fromdate)
-        print("## Getting payees")
-        get_account_payees(accounts, token)
+        for account in accounts.get("accounts"):
+            entries = []
+            entries.append(get_account_identifiers(account, token))
+            entries.append(get_account_transactions(account, token, fromdate))
+            entries.append(get_account_balance(account, token))
+            entries.append(get_account_payees(accounts, token))
+            account_name = account.get("name")
+            filename = data_folder / f"{date.today()}-starlingbank-{account_name}.json"
+            with open(filename, "w") as json_file:
+                json.dump(entries, json_file, indent=2)
 
 
 if __name__ == "__main__":
