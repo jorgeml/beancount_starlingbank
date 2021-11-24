@@ -58,7 +58,7 @@ def get_unit_price(transaction):
         return None
 
 
-def get_payee_account(file, categoryUid, payeeUid, payeeAccountUid):
+def get_payee_account(file, payeeUid, payeeAccountUid):
     with open(file.name) as data_file:
         payee_data = json.load(data_file)[3]["payees"]
         for payee in payee_data:
@@ -69,27 +69,22 @@ def get_payee_account(file, categoryUid, payeeUid, payeeAccountUid):
         return None
 
 
-def get_balance(file, categoryUid):
+def get_balance(file):
     with open(file.name) as data_file:
         return json.load(data_file)[2]["clearedBalance"]
 
 
 class Importer(importer.ImporterProtocol):
-    def __init__(self, category_uid, account):
-        self.category_uid = category_uid
+    def __init__(self, account_id, account):
+        self.account_id = account_id
         self.account = account
 
     def name(self):
         return '{}: "{}"'.format(super().name(), self.account)
 
     def identify(self, file):
-        transactions = get_transactions(file)
-
-        if transactions:
-            category_uid = transactions[0]["categoryUid"]
-
-            if category_uid:
-                return category_uid == self.category_uid
+        identifier = get_account_id(file)
+        return identifier == self.account_id
 
     def extract(self, file, existing_entries=None):
         entries = []
@@ -116,7 +111,6 @@ class Importer(importer.ImporterProtocol):
             elif "PAYEE" in transaction["counterPartyType"]:
                 account = get_payee_account(
                     file,
-                    transaction["categoryUid"],
                     transaction["counterPartyUid"],
                     transaction["counterPartySubEntityUid"],
                 )
@@ -171,7 +165,7 @@ class Importer(importer.ImporterProtocol):
         balance_date = parse_date_liberally(transactions[0]["transactionTime"])
         balance_date += datetime.timedelta(days=1)
 
-        balance = get_balance(file, transaction["categoryUid"])
+        balance = get_balance(file)
         balance_amount = data.Amount(
             D(balance.get("minorUnits")) / 100,
             balance.get("currency"),
