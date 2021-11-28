@@ -25,10 +25,13 @@ def get_account_id(file):
         return False
 
     with open(file.name) as data_file:
-        account_data = json.load(data_file)[0]
-        if "accountIdentifier" in account_data:
-            return account_data["accountIdentifier"]
-        else:
+        try:
+            account_data = json.load(data_file)[0]
+            if "accountIdentifier" in account_data:
+                return account_data["accountIdentifier"]
+            else:
+                return False
+        except KeyError:
             return False
 
 
