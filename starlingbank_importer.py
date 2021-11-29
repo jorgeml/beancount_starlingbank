@@ -19,6 +19,8 @@ from beancount.utils.date_utils import parse_date_liberally
 __author__ = "Jorge Martínez López <jorgeml@jorgeml.me>"
 __license__ = "MIT"
 
+VALID_STATUS = ["REVERSED", "SETTLED", "DECLINED", "REFUNDED", "ACCOUNT_CHECK"]
+
 
 def get_account_id(file):
     if not re.match(".*\.json", path.basename(file.name)):
@@ -95,6 +97,9 @@ class Importer(importer.ImporterProtocol):
         transactions = get_transactions(file)
 
         for transaction in transactions:
+
+            if transaction["status"] not in VALID_STATUS:
+                continue
 
             metadata = {
                 "bank_id": transaction["feedItemUid"],
