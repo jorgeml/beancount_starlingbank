@@ -96,7 +96,7 @@ class Importer(importer.ImporterProtocol):
         counter = itertools.count()
         transactions = get_transactions(file)
 
-        for transaction in transactions:
+        for transaction in reversed(transactions):
 
             if transaction["status"] not in VALID_STATUS:
                 continue
