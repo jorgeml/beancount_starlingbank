@@ -98,11 +98,11 @@ def main(argv):
     for token in TOKEN_LIST:
         accounts = get_accounts(token)
         for account in accounts.get("accounts"):
-            entries = []
-            entries.append(get_account_identifiers(account, token))
-            entries.append(get_account_transactions(account, token, fromdate))
-            entries.append(get_account_balance(account, token))
-            entries.append(get_account_payees(accounts, token))
+            entries = {}
+            entries["identifiers"] = get_account_identifiers(account, token)
+            entries["transactions"] = get_account_transactions(account, token, fromdate)
+            entries["balance"] = get_account_balance(account, token)
+            entries["payees"] = get_account_payees(accounts, token)
             account_name = account.get("name")
             filename = data_folder / f"{date.today()}-starlingbank-{account_name}.json"
             with open(filename, "w") as json_file:

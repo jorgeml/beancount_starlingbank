@@ -28,7 +28,7 @@ def get_account_id(file):
 
     with open(file.name) as data_file:
         try:
-            account_data = json.load(data_file)[0]
+            account_data = json.load(data_file)["identifiers"]
             if "accountIdentifier" in account_data:
                 return account_data["accountIdentifier"]
             else:
@@ -42,7 +42,7 @@ def get_transactions(file):
         return False
 
     with open(file.name) as data_file:
-        transaction_data = json.load(data_file)[1]
+        transaction_data = json.load(data_file)["transactions"]
         if "feedItems" in transaction_data:
             return transaction_data["feedItems"]
         else:
@@ -65,7 +65,7 @@ def get_unit_price(transaction):
 
 def get_payee_account(file, payeeUid, payeeAccountUid):
     with open(file.name) as data_file:
-        payee_data = json.load(data_file)[3]["payees"]
+        payee_data = json.load(data_file)["payees"]["payees"]
         for payee in payee_data:
             if payeeUid == payee["payeeUid"]:
                 for account in payee["accounts"]:
@@ -76,7 +76,7 @@ def get_payee_account(file, payeeUid, payeeAccountUid):
 
 def get_balance(file):
     with open(file.name) as data_file:
-        return json.load(data_file)[2]["clearedBalance"]
+        return json.load(data_file)["balance"]["clearedBalance"]
 
 
 class Importer(importer.ImporterProtocol):
