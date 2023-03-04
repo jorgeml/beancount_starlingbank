@@ -32,7 +32,6 @@ def get_account_identifiers(account, token):
     headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
     params = {}
     accountUid = account.get("accountUid")
-    categoryUid = account.get("defaultCategory")
     identifiers_request = requests.get(
         f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/identifiers",
         headers=headers,
@@ -46,7 +45,6 @@ def get_account_balance(account, token):
     headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
     params = {}
     accountUid = account.get("accountUid")
-    categoryUid = account.get("defaultCategory")
     balance_request = requests.get(
         f"https://api.starlingbank.com/api/v2/accounts/{accountUid}/balance",
         headers=headers,
@@ -55,6 +53,17 @@ def get_account_balance(account, token):
     balance_request.raise_for_status()
     return balance_request.json()
 
+def get_account_spaces(account, token):
+    headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
+    params = {}
+    accountUid = account.get("accountUid")
+    spaces_request = requests.get(
+        f"https://api.starlingbank.com/api/v2/account/{accountUid}/spaces",
+        headers=headers,
+        params=params,
+    )
+    spaces_request.raise_for_status()
+    return spaces_request.json()
 
 def get_account_transactions(account, token, fromdate):
     headers = {"Authorization": f"Bearer {token}"}
@@ -102,6 +111,7 @@ def main(argv):
             entries["identifiers"] = get_account_identifiers(account, token)
             entries["transactions"] = get_account_transactions(account, token, fromdate)
             entries["balance"] = get_account_balance(account, token)
+            entries["spaces"] = get_account_spaces(account, token)
             entries["payees"] = get_account_payees(accounts, token)
             account_name = account.get("name")
             filename = data_folder / f"{date.today()}-starlingbank-{account_name}.json"
@@ -111,3 +121,4 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+

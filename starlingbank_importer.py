@@ -76,7 +76,7 @@ def get_payee_account(file, payeeUid, payeeAccountUid):
 
 def get_balance(file):
     with open(file.name) as data_file:
-        return json.load(data_file)["balance"]["clearedBalance"]
+        return json.load(data_file)["balance"]["totalClearedBalance"]
 
 
 class Importer(importer.ImporterProtocol):
@@ -201,3 +201,4 @@ class Importer(importer.ImporterProtocol):
     def file_date(self, file):
         transactions = get_transactions(file)
         return parse_date_liberally(transactions[0]["transactionTime"])
+
