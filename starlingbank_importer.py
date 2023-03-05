@@ -101,13 +101,18 @@ class Importer(importer.ImporterProtocol):
             if transaction["status"] not in VALID_STATUS:
                 continue
 
-            metadata = {
-                "bank_id": transaction["feedItemUid"],
-                "bank_description": transaction["reference"],
-                "bank_created_date": transaction["transactionTime"],
-                "bank_settlement_date": transaction["settlementTime"],
-                "bank_updated_date": transaction["updatedAt"],
-            }
+            metadata = {}
+            metadata["bank_id"] = transaction["feedItemUid"]
+
+            if "reference" in transaction:
+                reference = transaction["reference"]
+                metadata["bank_description"] = transaction["reference"]
+            else:
+                reference = None
+            
+            metadata["bank_created_date"] = transaction["transactionTime"]
+            metadata["bank_settlement_date"] = transaction["settlementTime"]
+            metadata["bank_updated_date"] = transaction["updatedAt"]
 
             if (
                 "SENDER" in transaction["counterPartyType"]
@@ -133,6 +138,10 @@ class Importer(importer.ImporterProtocol):
                     metadata["counterparty_account_description"] = account[
                         "description"
                     ]
+            elif "CATEGORY" in transaction["counterPartyType"]:
+                metadata["counterparty_type"] = transaction["counterPartyType"]
+                metadata["counterparty_uid"] = transaction["counterPartyUid"]
+                metadata["counterparty_name"] = transaction["counterPartyName"]
 
             meta = data.new_metadata(file.name, next(counter), metadata)
 
@@ -145,7 +154,6 @@ class Importer(importer.ImporterProtocol):
             else:
                 name = None
 
-            reference = transaction["reference"]
             source = transaction["source"]
 
             narration = " / ".join(filter(None, [payee, name, reference, source]))
@@ -160,10 +168,18 @@ class Importer(importer.ImporterProtocol):
                 postings.append(
                     data.Posting(self.account, -unit, None, price, None, None)
                 )
+                if transaction["source"] == "INTERNAL_TRANSFER":
+                    postings.append(
+                        data.Posting(self.account, unit, None, price, None, None)
+                    )    
             else:
                 postings.append(
                     data.Posting(self.account, unit, None, price, None, None)
                 )
+                if transaction["source"] == "INTERNAL_TRANSFER":
+                    postings.append(
+                        data.Posting(self.account, -unit, None, price, None, None)
+                    )    
 
             link = set()
 
@@ -201,4 +217,5 @@ class Importer(importer.ImporterProtocol):
     def file_date(self, file):
         transactions = get_transactions(file)
         return parse_date_liberally(transactions[0]["transactionTime"])
+
 
