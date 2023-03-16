@@ -70,12 +70,38 @@ def get_account_transactions(account, token, fromdate):
     accountUid = account.get("accountUid")
     categoryUid = account.get("defaultCategory")
     params = {"changesSince": fromdate.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    transactions = []
     transactions_request = requests.get(
         f"https://api.starlingbank.com/api/v2/feed/account/{accountUid}/category/{categoryUid}",
         headers=headers,
         params=params,
     )
     transactions_request.raise_for_status()
+    transactions.extend(transactions_request.json())
+    spaces_request = requests.get(
+        f"https://api.starlingbank.com/api/v2/account/{accountUid}/spaces",
+        headers=headers,
+        params=params,
+    )
+    spaces_request.raise_for_status()
+
+    try:
+        spaces_categories = [
+        space["savingsGoalUid"] for space in spaces_request.json()["savingsGoals"]
+        ]
+    except KeyError:
+        spaces_categories = []
+
+    for space_category in spaces_categories:
+        categoryUid = space_category
+        transactions_request = requests.get(
+            f"https://api.starlingbank.com/api/v2/feed/account/{accountUid}/category/{categoryUid}",
+            headers=headers,
+            params=params,
+        )
+        transactions_request.raise_for_status()
+        transactions.extend(transactions_request.json())
+
     return transactions_request.json()
 
 
@@ -109,9 +135,9 @@ def main(argv):
         for account in accounts.get("accounts"):
             entries = {}
             entries["identifiers"] = get_account_identifiers(account, token)
+            entries["spaces"] = get_account_spaces(account, token)
             entries["transactions"] = get_account_transactions(account, token, fromdate)
             entries["balance"] = get_account_balance(account, token)
-            entries["spaces"] = get_account_spaces(account, token)
             entries["payees"] = get_account_payees(accounts, token)
             account_name = account.get("name")
             filename = data_folder / f"{date.today()}-starlingbank-{account_name}.json"
@@ -121,4 +147,5 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
 
