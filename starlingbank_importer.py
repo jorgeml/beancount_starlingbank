@@ -19,7 +19,7 @@ from beancount.utils.date_utils import parse_date_liberally
 __author__ = "Jorge Martínez López <jorgeml@jorgeml.me>"
 __license__ = "MIT"
 
-VALID_STATUS = ["SETTLED", "DECLINED", "REFUNDED", "ACCOUNT_CHECK"]
+VALID_STATUS = ["SETTLED", "REFUNDED", "ACCOUNT_CHECK"]
 
 
 def get_account_id(file):
