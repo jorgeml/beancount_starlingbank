@@ -70,14 +70,15 @@ def get_account_transactions(account, token, fromdate):
     accountUid = account.get("accountUid")
     categoryUid = account.get("defaultCategory")
     params = {"changesSince": fromdate.strftime("%Y-%m-%dT%H:%M:%SZ")}
-    transactions = []
+    transactions = {'feedItems':[]}
     transactions_request = requests.get(
         f"https://api.starlingbank.com/api/v2/feed/account/{accountUid}/category/{categoryUid}",
         headers=headers,
         params=params,
     )
     transactions_request.raise_for_status()
-    transactions.extend(transactions_request.json())
+    transactions['feedItems'].extend(transactions_request.json().get("feedItems"))
+    
     spaces_request = requests.get(
         f"https://api.starlingbank.com/api/v2/account/{accountUid}/spaces",
         headers=headers,
@@ -100,9 +101,9 @@ def get_account_transactions(account, token, fromdate):
             params=params,
         )
         transactions_request.raise_for_status()
-        transactions.extend(transactions_request.json())
+        transactions['feedItems'].extend(transactions_request.json().get("feedItems"))
 
-    return transactions_request.json()
+    return transactions
 
 
 def get_account_payees(account, token):
@@ -147,5 +148,4 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
 
