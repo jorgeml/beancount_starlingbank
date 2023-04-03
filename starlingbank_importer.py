@@ -35,7 +35,17 @@ def get_account_id(file):
                 return False
         except KeyError:
             return False
+        
+def get_account_default_category(file):
+    if not re.match(".*\.json", path.basename(file.name)):
+        return False
 
+    with open(file.name) as data_file:
+        account_data = json.load(data_file)["account"]
+        if "defaultCategory" in account_data:
+            return account_data["defaultCategory"]
+        else:
+            return False
 
 def get_transactions(file):
     if not re.match(".*\.json", path.basename(file.name)):
@@ -65,7 +75,7 @@ def get_unit_price(transaction):
 
 def get_payee_account(file, payeeUid, payeeAccountUid):
     with open(file.name) as data_file:
-        payee_data = json.load(data_file)["payees"]["payees"]
+        payee_data = json.load(data_file)["payees"]
         for payee in payee_data:
             if payeeUid == payee["payeeUid"]:
                 for account in payee["accounts"]:
@@ -73,6 +83,13 @@ def get_payee_account(file, payeeUid, payeeAccountUid):
                         return account
         return None
 
+def get_category_name(file, categoryUid):
+    with open(file.name) as data_file:
+        spaces_data = json.load(data_file)["spaces"].get("savingsGoals")
+        for space in spaces_data:
+            if space["savingsGoalUid"] == categoryUid:
+                return space["name"]
+        return None
 
 def get_balance(file):
     with open(file.name) as data_file:
@@ -94,6 +111,7 @@ class Importer(importer.ImporterProtocol):
     def extract(self, file, existing_entries=None):
         entries = []
         counter = itertools.count()
+        default_category = get_account_default_category(file)
         transactions = get_transactions(file)
 
         for transaction in reversed(transactions):
@@ -102,7 +120,12 @@ class Importer(importer.ImporterProtocol):
                 continue
 
             metadata = {}
+
             metadata["bank_id"] = transaction["feedItemUid"]
+
+            if transaction["categoryUid"] != default_category:
+                metadata["bank_category"] = transaction["categoryUid"]
+                metadata["bank_space_name"] = get_category_name(file, transaction["categoryUid"])
 
             if "reference" in transaction:
                 reference = transaction["reference"]
@@ -217,5 +240,6 @@ class Importer(importer.ImporterProtocol):
     def file_date(self, file):
         transactions = get_transactions(file)
         return parse_date_liberally(transactions[0]["transactionTime"])
+
 
 

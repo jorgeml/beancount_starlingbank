@@ -115,7 +115,7 @@ def get_account_payees(account, token):
         params=params,
     )
     payees_request.raise_for_status()
-    return payees_request.json()
+    return payees_request.json().get("payees")
 
 
 def main(argv):
@@ -135,6 +135,7 @@ def main(argv):
         accounts = get_accounts(token)
         for account in accounts.get("accounts"):
             entries = {}
+            entries["account"] = account
             entries["identifiers"] = get_account_identifiers(account, token)
             entries["spaces"] = get_account_spaces(account, token)
             entries["transactions"] = get_account_transactions(account, token, fromdate)
@@ -148,4 +149,5 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
 
