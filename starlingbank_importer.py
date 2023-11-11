@@ -23,7 +23,7 @@ VALID_STATUS = ["SETTLED", "REFUNDED", "ACCOUNT_CHECK"]
 
 
 def get_account_id(file):
-    if not re.match(".*\.json", path.basename(file.name)):
+    if not re.match(r'.*\.json', path.basename(file.name)):
         return False
 
     with open(file.name) as data_file:
@@ -37,7 +37,7 @@ def get_account_id(file):
             return False
         
 def get_account_default_category(file):
-    if not re.match(".*\.json", path.basename(file.name)):
+    if not re.match(r'.*\.json', path.basename(file.name)):
         return False
 
     with open(file.name) as data_file:
@@ -48,7 +48,7 @@ def get_account_default_category(file):
             return False
 
 def get_transactions(file):
-    if not re.match(".*\.json", path.basename(file.name)):
+    if not re.match(r'.*\.json', path.basename(file.name)):
         return False
 
     with open(file.name) as data_file:
