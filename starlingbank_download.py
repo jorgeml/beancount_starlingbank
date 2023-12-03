@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import json
 import requests
 import sys
+import time
 import getopt
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -16,9 +17,11 @@ load_dotenv(path.join(basedir, ".env"))
 # General Config
 TOKEN_LIST = json.loads(environ["PERSONAL_ACCESS_TOKENS"])
 data_folder = Path(environ.get("DATA_FOLDER"))
+MAX_REQ_PS = 5
 
 
 def get_accounts(token):
+    time.sleep(1/MAX_REQ_PS)
     headers = {"Authorization": f"Bearer {token}"}
     params = {}
     accounts_request = requests.get(
@@ -29,6 +32,7 @@ def get_accounts(token):
 
 
 def get_account_identifiers(account, token):
+    time.sleep(1/MAX_REQ_PS)
     headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
     params = {}
     accountUid = account.get("accountUid")
@@ -42,6 +46,7 @@ def get_account_identifiers(account, token):
 
 
 def get_account_balance(account, token):
+    time.sleep(1/MAX_REQ_PS)
     headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
     params = {}
     accountUid = account.get("accountUid")
@@ -54,6 +59,7 @@ def get_account_balance(account, token):
     return balance_request.json()
 
 def get_account_spaces(account, token):
+    time.sleep(1/MAX_REQ_PS)
     headers = {"Authorization": f"Bearer {token}", "account_id": account.get("id")}
     params = {}
     accountUid = account.get("accountUid")
@@ -66,6 +72,7 @@ def get_account_spaces(account, token):
     return spaces_request.json()
 
 def get_account_transactions(account, token, fromdate):
+    time.sleep(1/MAX_REQ_PS)
     headers = {"Authorization": f"Bearer {token}"}
     accountUid = account.get("accountUid")
     categoryUid = account.get("defaultCategory")
@@ -79,6 +86,7 @@ def get_account_transactions(account, token, fromdate):
     transactions_request.raise_for_status()
     transactions['feedItems'].extend(transactions_request.json().get("feedItems"))
     
+    time.sleep(1/MAX_REQ_PS)
     spaces_request = requests.get(
         f"https://api.starlingbank.com/api/v2/account/{accountUid}/spaces",
         headers=headers,
@@ -95,6 +103,7 @@ def get_account_transactions(account, token, fromdate):
 
     for space_category in spaces_categories:
         categoryUid = space_category
+        time.sleep(1/MAX_REQ_PS)
         transactions_request = requests.get(
             f"https://api.starlingbank.com/api/v2/feed/account/{accountUid}/category/{categoryUid}",
             headers=headers,
@@ -107,6 +116,7 @@ def get_account_transactions(account, token, fromdate):
 
 
 def get_account_payees(account, token):
+    time.sleep(1/MAX_REQ_PS)
     headers = {"Authorization": f"Bearer {token}"}
     params = {}
     payees_request = requests.get(
