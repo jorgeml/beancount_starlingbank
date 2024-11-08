@@ -9,110 +9,56 @@ import datetime
 import itertools
 import json
 import re
+import logging
+
 from os import path
 
-from beancount.ingest import importer
-from beancount.core import data, flags
+from beancount.core import account
+from beancount.core import amount
+from beancount.core import data
+from beancount.core import flags
+from beancount.core import position
 from beancount.core.number import D
+from beancount.core.number import ZERO
 from beancount.utils.date_utils import parse_date_liberally
+
+import beangulp
+from beangulp import mimetypes
+from beangulp.testing import main
 
 __author__ = "Jorge Martínez López <jorgeml@jorgeml.me>"
 __license__ = "MIT"
 
 VALID_STATUS = ["SETTLED", "REFUNDED", "ACCOUNT_CHECK"]
 
+class Importer(beangulp.Importer):
+    """An importer for Starling Bank JSON files."""
 
-def get_account_id(file):
-    if not re.match(r'.*\.json', path.basename(file.name)):
-        return False
-
-    with open(file.name) as data_file:
-        try:
-            account_data = json.load(data_file)["identifiers"]
-            if "accountIdentifier" in account_data:
-                return account_data["accountIdentifier"]
-            else:
-                return False
-        except KeyError:
-            return False
-        
-def get_account_default_category(file):
-    if not re.match(r'.*\.json', path.basename(file.name)):
-        return False
-
-    with open(file.name) as data_file:
-        account_data = json.load(data_file)["account"]
-        if "defaultCategory" in account_data:
-            return account_data["defaultCategory"]
-        else:
-            return False
-
-def get_transactions(file):
-    if not re.match(r'.*\.json', path.basename(file.name)):
-        return False
-
-    with open(file.name) as data_file:
-        transaction_data = json.load(data_file)["transactions"]
-        if "feedItems" in transaction_data:
-            return transaction_data["feedItems"]
-        else:
-            return False
-
-
-def get_unit_price(transaction):
-    if (
-        transaction["sourceAmount"]["currency"] != transaction["amount"]["currency"]
-        and transaction["sourceAmount"]["minorUnits"] != 0
-    ):
-        total_local_amount = D(transaction["amount"]["minorUnits"])
-        total_foreign_amount = D(transaction["sourceAmount"]["minorUnits"])
-        # all prices need to be positive
-        unit_price = round(abs(total_foreign_amount / total_local_amount), 5)
-        return data.Amount(unit_price, transaction["sourceAmount"]["currency"])
-    else:
-        return None
-
-
-def get_payee_account(file, payeeUid, payeeAccountUid):
-    with open(file.name) as data_file:
-        payee_data = json.load(data_file)["payees"]
-        for payee in payee_data:
-            if payeeUid == payee["payeeUid"]:
-                for account in payee["accounts"]:
-                    if payeeAccountUid == account["payeeAccountUid"]:
-                        return account
-        return None
-
-def get_category_name(file, categoryUid):
-    with open(file.name) as data_file:
-        spaces_data = json.load(data_file)["spaces"].get("savingsGoals")
-        for space in spaces_data:
-            if space["savingsGoalUid"] == categoryUid:
-                return space["name"]
-        return None
-
-def get_balance(file):
-    with open(file.name) as data_file:
-        return json.load(data_file)["balance"]["totalClearedBalance"]
-
-
-class Importer(importer.ImporterProtocol):
-    def __init__(self, account_id, account):
+    def __init__(self,
+                 account_id,
+                 account):
         self.account_id = account_id
-        self.account = account
+        self.importer_account = account
 
-    def name(self):
-        return '{}: "{}"'.format(super().name(), self.account)
-
-    def identify(self, file):
-        identifier = get_account_id(file)
+    def identify(self, filepath):
+        identifier = get_account_id(filepath)
         return identifier == self.account_id
 
-    def extract(self, file, existing_entries=None):
+    def filename(self, filepath):
+        return 'starling.{}'.format(path.basename(filepath))
+
+    def account(self, filepath):
+        return self.account
+
+    def date(self, filepath):
+        transactions = get_transactions(filepath)
+        return parse_date_liberally(transactions[0]["transactionTime"])
+
+    def extract(self, filepath, existing=None):
         entries = []
         counter = itertools.count()
-        default_category = get_account_default_category(file)
-        transactions = get_transactions(file)
+        default_category = get_account_default_category(filepath)
+        transactions = get_transactions(filepath)
 
         for transaction in reversed(transactions):
 
@@ -125,7 +71,7 @@ class Importer(importer.ImporterProtocol):
 
             if transaction["categoryUid"] != default_category:
                 metadata["bank_category"] = transaction["categoryUid"]
-                metadata["bank_space_name"] = get_category_name(file, transaction["categoryUid"])
+                metadata["bank_space_name"] = get_category_name(filepath, transaction["categoryUid"])
 
             if "reference" in transaction:
                 reference = transaction["reference"]
@@ -149,7 +95,7 @@ class Importer(importer.ImporterProtocol):
                 ]
             elif "PAYEE" in transaction["counterPartyType"]:
                 account = get_payee_account(
-                    file,
+                    filepath,
                     transaction["counterPartyUid"],
                     transaction["counterPartySubEntityUid"],
                 )
@@ -166,7 +112,7 @@ class Importer(importer.ImporterProtocol):
                 metadata["counterparty_uid"] = transaction["counterPartyUid"]
                 metadata["counterparty_name"] = transaction["counterPartyName"]
 
-            meta = data.new_metadata(file.name, next(counter), metadata)
+            meta = data.new_metadata(filepath, next(counter), metadata)
 
             date = parse_date_liberally(transaction["transactionTime"])
             price = get_unit_price(transaction)
@@ -189,19 +135,19 @@ class Importer(importer.ImporterProtocol):
 
             if transaction["direction"] == "OUT":
                 postings.append(
-                    data.Posting(self.account, -unit, None, price, None, None)
+                    data.Posting(self.importer_account, -unit, None, price, None, None)
                 )
                 if transaction["source"] == "INTERNAL_TRANSFER":
                     postings.append(
-                        data.Posting(self.account, unit, None, price, None, None)
+                        data.Posting(self.importer_account, unit, None, price, None, None)
                     )    
             else:
                 postings.append(
-                    data.Posting(self.account, unit, None, price, None, None)
+                    data.Posting(self.importer_account, unit, None, price, None, None)
                 )
                 if transaction["source"] == "INTERNAL_TRANSFER":
                     postings.append(
-                        data.Posting(self.account, -unit, None, price, None, None)
+                        data.Posting(self.importer_account, -unit, None, price, None, None)
                     )    
 
             link = set()
@@ -215,31 +161,111 @@ class Importer(importer.ImporterProtocol):
         balance_date = parse_date_liberally(transactions[0]["transactionTime"])
         balance_date += datetime.timedelta(days=1)
 
-        balance = get_balance(file)
+        balance = get_balance(filepath)
+
         balance_amount = data.Amount(
             D(balance.get("minorUnits")) / 100,
             balance.get("currency"),
         )
-
-        meta = data.new_metadata(file.name, next(counter))
+        
+        meta = data.new_metadata(filepath, next(counter))
 
         balance_entry = data.Balance(
-            meta, balance_date, self.account, balance_amount, None, None
+            meta, balance_date, self.importer_account, balance_amount, None, None
         )
 
         entries.append(balance_entry)
 
         return data.sorted(entries)
 
-    def file_account(self, file):
-        return self.account
 
-    def file_name(self, file):
-        return f"starlingbank.{self.category_uid}.json"
+def get_account_id(filepath):
+    mimetype, encoding = mimetypes.guess_type(filepath)
+    if mimetype != 'application/json':
+        return False
 
-    def file_date(self, file):
-        transactions = get_transactions(file)
-        return parse_date_liberally(transactions[0]["transactionTime"])
+    with open(filepath) as data_file:
+        try:
+            account_data = json.load(data_file)["identifiers"]
+            if "accountIdentifier" in account_data:
+                return account_data["accountIdentifier"]
+            else:
+                return False
+        except KeyError:
+            return False
+        
+def get_account_default_category(filepath):
+    mimetype, encoding = mimetypes.guess_type(filepath)
+    if mimetype != 'application/json':
+        return False
+
+    with open(filepath) as data_file:
+        account_data = json.load(data_file)["account"]
+        if "defaultCategory" in account_data:
+            return account_data["defaultCategory"]
+        else:
+            return False
+
+def get_balance_date(filepath):
+    mimetype, encoding = mimetypes.guess_type(filepath)
+    if mimetype != 'application/json':
+        return False
+
+    with open(filepath) as data_file:
+        account_data = json.load(data_file)["account"]
+        if "createdAt" in account_data:
+            return account_data["createdAt"]
+        else:
+            return False
+
+def get_transactions(filepath):
+    mimetype, encoding = mimetypes.guess_type(filepath)
+    if mimetype != 'application/json':
+        return False
+
+    with open(filepath) as data_file:
+        transaction_data = json.load(data_file)["transactions"]
+        if "feedItems" in transaction_data:
+            return transaction_data["feedItems"]
+        else:
+            return False
+
+
+def get_unit_price(transaction):
+    if (
+        transaction["sourceAmount"]["currency"] != transaction["amount"]["currency"]
+        and transaction["sourceAmount"]["minorUnits"] != 0
+    ):
+        total_local_amount = D(transaction["amount"]["minorUnits"])
+        total_foreign_amount = D(transaction["sourceAmount"]["minorUnits"])
+        # all prices need to be positive
+        unit_price = round(abs(total_foreign_amount / total_local_amount), 5)
+        return data.Amount(unit_price, transaction["sourceAmount"]["currency"])
+    else:
+        return None
+
+
+def get_payee_account(filepath, payeeUid, payeeAccountUid):
+    with open(filepath) as data_file:
+        payee_data = json.load(data_file)["payees"]
+        for payee in payee_data:
+            if payeeUid == payee["payeeUid"]:
+                for account in payee["accounts"]:
+                    if payeeAccountUid == account["payeeAccountUid"]:
+                        return account
+        return None
+
+def get_category_name(filepath, categoryUid):
+    with open(filepath) as data_file:
+        spaces_data = json.load(data_file)["spaces"].get("savingsGoals")
+        for space in spaces_data:
+            if space["savingsGoalUid"] == categoryUid:
+                return space["name"]
+        return None
+
+def get_balance(filepath):
+    with open(filepath) as data_file:
+        return json.load(data_file)["balance"]["totalClearedBalance"]
 
 
 
