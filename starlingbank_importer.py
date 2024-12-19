@@ -28,9 +28,9 @@ def get_account_id(file):
 
     with open(file.name) as data_file:
         try:
-            account_data = json.load(data_file)["identifiers"]
-            if "accountIdentifier" in account_data:
-                return account_data["accountIdentifier"]
+            account_data = json.load(data_file)["account"]
+            if "accountUid" in account_data:
+                return account_data["accountUid"]
             else:
                 return False
         except KeyError:
