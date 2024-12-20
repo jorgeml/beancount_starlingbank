@@ -158,7 +158,12 @@ class Importer(beangulp.Importer):
                 )
             )
 
-        balance_date = parse_date_liberally(transactions[0]["transactionTime"])
+        balance_date = datetime.date.today()
+        try: 
+            balance_date = entries[-1].date
+        except IndexError:
+            pass
+        
         balance_date += datetime.timedelta(days=1)
 
         balance = get_balance(filepath)
