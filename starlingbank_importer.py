@@ -113,7 +113,7 @@ class Importer(beangulp.Importer):
 
             meta = data.new_metadata(filepath, next(counter), metadata)
 
-            date = parse_transaction_time(transaction["transactionTime"])
+            date = parse_transaction_time(transaction["transactionTime"]).date()
             price = get_unit_price(transaction)
             payee = transaction["counterPartyName"]
 
@@ -280,5 +280,5 @@ def parse_transaction_time(date_str):
       A datetime.date() instance.
     """
     timestamp = datetime.datetime.fromisoformat(date_str)
-    return timestamp.date()
+    return timestamp
 
