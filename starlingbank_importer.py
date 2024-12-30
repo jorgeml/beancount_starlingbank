@@ -20,7 +20,6 @@ from beancount.core import flags
 from beancount.core import position
 from beancount.core.number import D
 from beancount.core.number import ZERO
-from beancount.utils.date_utils import parse_date_liberally
 
 import beangulp
 from beangulp import mimetypes
@@ -52,7 +51,7 @@ class Importer(beangulp.Importer):
 
     def date(self, filepath):
         transactions = get_transactions(filepath)
-        return parse_date_liberally(transactions[0]["transactionTime"])
+        return parse_transaction_time(transactions[0]["transactionTime"])
 
     def extract(self, filepath, existing=None):
         entries = []
@@ -114,7 +113,7 @@ class Importer(beangulp.Importer):
 
             meta = data.new_metadata(filepath, next(counter), metadata)
 
-            date = parse_date_liberally(transaction["transactionTime"])
+            date = parse_transaction_time(transaction["transactionTime"])
             price = get_unit_price(transaction)
             payee = transaction["counterPartyName"]
 
@@ -272,5 +271,14 @@ def get_balance(filepath):
     with open(filepath) as data_file:
         return json.load(data_file)["balance"]["totalClearedBalance"]
 
+def parse_transaction_time(date_str):
+    """Parse a time string and return a datetime object.
 
+    Args:
+      date_str: A string, the date to be parsed, in ISO format.
+    Returns:
+      A datetime.date() instance.
+    """
+    timestamp = datetime.datetime.fromisoformat(date_str)
+    return timestamp.date()
 
