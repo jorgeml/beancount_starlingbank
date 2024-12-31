@@ -47,7 +47,7 @@ class Importer(beangulp.Importer):
         return 'starling.{}'.format(path.basename(filepath))
 
     def account(self, filepath):
-        return self.account
+        return self.importer_account
 
     def date(self, filepath):
         transactions = get_transactions(filepath)
@@ -113,7 +113,7 @@ class Importer(beangulp.Importer):
 
             meta = data.new_metadata(filepath, next(counter), metadata)
 
-            date = parse_transaction_time(transaction["transactionTime"]).date()
+            date = parse_transaction_time(transaction["transactionTime"])
             price = get_unit_price(transaction)
             payee = transaction["counterPartyName"]
 
@@ -124,7 +124,7 @@ class Importer(beangulp.Importer):
 
             source = transaction["source"]
 
-            narration = " / ".join(filter(None, [payee, name, reference, source]))
+            narration = " / ".join(filter(None, [name, reference, source]))
 
             postings = []
             unit = data.Amount(
@@ -167,7 +167,7 @@ class Importer(beangulp.Importer):
 
         balance = get_balance(filepath)
 
-        balance_amount = data.Amount(
+        balance_amount = amount.Amount(
             D(balance.get("minorUnits")) / 100,
             balance.get("currency"),
         )
@@ -280,5 +280,5 @@ def parse_transaction_time(date_str):
       A datetime.date() instance.
     """
     timestamp = datetime.datetime.fromisoformat(date_str)
-    return timestamp
+    return timestamp.date()
 
