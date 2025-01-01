@@ -44,14 +44,15 @@ class Importer(beangulp.Importer):
         return identifier == self.account_id
 
     def filename(self, filepath):
-        return 'starling.{}'.format(path.basename(filepath))
+        account_name = get_account_name(filepath)
+        return f'StarlingBank.{account_name}.json'
 
     def account(self, filepath):
         return self.importer_account
 
     def date(self, filepath):
         transactions = get_transactions(filepath)
-        return parse_transaction_time(transactions[0]["transactionTime"])
+        return parse_transaction_time(transactions[0]["updatedAt"])
 
     def extract(self, filepath, existing=None):
         entries = []
@@ -197,7 +198,22 @@ def get_account_id(filepath):
                 return False
         except KeyError:
             return False
-        
+
+def get_account_name(filepath):
+    mimetype, encoding = mimetypes.guess_type(filepath)
+    if mimetype != 'application/json':
+        return False
+
+    with open(filepath) as data_file:
+        try:
+            account_data = json.load(data_file)["account"]
+            if "name" in account_data:
+                return account_data["name"]
+            else:
+                return False
+        except KeyError:
+            return False
+
 def get_account_default_category(filepath):
     mimetype, encoding = mimetypes.guess_type(filepath)
     if mimetype != 'application/json':
@@ -234,7 +250,6 @@ def get_transactions(filepath):
         else:
             return False
 
-
 def get_unit_price(transaction):
     if (
         transaction["sourceAmount"]["currency"] != transaction["amount"]["currency"]
@@ -247,7 +262,6 @@ def get_unit_price(transaction):
         return data.Amount(unit_price, transaction["sourceAmount"]["currency"])
     else:
         return None
-
 
 def get_payee_account(filepath, payeeUid, payeeAccountUid):
     with open(filepath) as data_file:
